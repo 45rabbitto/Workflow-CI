@@ -1,8 +1,6 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
 RUN pip install --no-cache-dir \
     mlflow==2.19.0 \
@@ -14,8 +12,8 @@ RUN pip install --no-cache-dir \
     matplotlib==3.8.2 \
     pandas==2.1.4
 
-WORKDIR /opt/mlflow
+COPY model /app/model
 
-COPY . /opt/mlflow/
+EXPOSE 8080
 
-ENTRYPOINT ["mlflow", "models", "serve", "-m", "/opt/mlflow/model", "-h", "0.0.0.0", "-p", "8080"]
+ENTRYPOINT ["mlflow", "models", "serve", "-m", "/app/model", "-h", "0.0.0.0", "-p", "8080"]
