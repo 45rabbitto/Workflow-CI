@@ -31,12 +31,13 @@ jobs:
         cd MLProject
         mlflow run . -P test_size=0.2 -P random_state=42
     
-    - name: Get run_id
+    - name: Read run_id from file
       id: mlflow_run
       shell: bash -l {0}
       run: |
-        RUN_ID=$(mlflow runs list --experiment-id 0 | grep run_id | head -1 | cut -d' ' -f2)
+        RUN_ID=$(cat MLProject/run_id.txt)
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+        echo "RUN_ID=$RUN_ID"
     
     - name: Build Docker Model
       shell: bash -l {0}
