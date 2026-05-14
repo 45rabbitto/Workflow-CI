@@ -19,40 +19,47 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-    
-    - name: Set up Python 3.12.6
-      uses: actions/setup-python@v5
       with:
-        python-version: '3.12.6'
+        fetch-depth: 0
     
-    - name: Install dependencies
+    - name: Setup Conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        python-version: 3.12.6
+        environment-file: MLProject/conda.yaml
+        activate-environment: mlflow-env
+        auto-activate-base: false
+        auto-update-conda: false
+        channels: conda-forge,defaults
+    
+    - name: Check Conda Environment
+      shell: bash -l {0}
       run: |
-        python -m pip install --upgrade pip
-        pip install mlflow==2.19.0
-        pip install cloudpickle==3.1.2
-        pip install numpy==1.26.2
-        pip install psutil==7.2.2
-        pip install scikit-learn==1.5.1
-        pip install scipy==1.16.3
-        pip install matplotlib==3.8.2
-        pip install pandas==2.1.4
+        conda info
+        conda list
+        python --version
+        pip --version
     
     - name: Run MLflow project
+      shell: bash -l {0}
       run: |
         cd MLProject
-        mlflow run . --env-manager=local -P test_size=0.2 -P random_state=42 -P n_estimators=100 -P max_depth=10
+        mlflow run . --env-manager=conda -P test_size=0.2 -P random_state=42 -P n_estimators=100 -P max_depth=10
     
     - name: Get latest MLflow run_id
       id: mlflow_run
+      shell: bash -l {0}
       run: |
-          RUN_ID=$(mlflow runs list --experiment-id 0 --max-results 1 | grep -oP 'run_id: \K[^\s]+' | head -1)
-          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-          echo "RUN_ID=$RUN_ID"
+        RUN_ID=$(mlflow runs list --experiment-id 0 --max-results 1 | grep -oP 'run_id: \K[^\s]+' | head -1)
+        echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+        echo "RUN_ID=$RUN_ID"
     
     - name: Build Docker Model with MLflow
+      shell: bash -l {0}
       run: |
         cd MLProject
-        mlflow models build-docker -m "runs:/${{ steps.mlflow_run.outputs.run_id }}/model" -n "${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest" --enable-mlserver
+        mlflow models build-docker -m "runs:/${{ steps.mlflow_run.outputs.run_id }}/model" -n "${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest"
     
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
