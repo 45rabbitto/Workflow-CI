@@ -134,6 +134,11 @@ def main():
             signature=signature,
             input_example=X_train.iloc[:5]
         )
+
+        run_id = mlflow.active_run().info.run_id
+        with open('run_id.txt', 'w') as f:
+            f.write(run_id)
+        print(f"Run ID saved: {run_id}")
         
         print(f"Test R2: {test_r2:.4f}")
         print(f"Test RMSE: ${test_rmse:,.2f}")
