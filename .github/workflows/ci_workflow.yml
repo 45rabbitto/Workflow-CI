@@ -39,6 +39,18 @@ jobs:
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         echo "RUN_ID=$RUN_ID"
     
+    - name: Install Python dependencies for Google Drive
+      run: |
+        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+    
+    - name: Upload to Google Drive
+      uses: saturnism/actions-google-drive@v1
+      with:
+        service-account-key: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
+        source: ./MLProject/data_preprocessed/
+        destination: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        recursive: true
+    
     - name: Copy model to docker build context
       run: |
         mkdir -p MLProject/docker_build
