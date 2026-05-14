@@ -6,14 +6,11 @@ on:
     paths:
       - 'MLProject/**'
       - '.github/workflows/ci_workflow.yml'
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 env:
   DOCKER_HUB_USERNAME: 45rabbitto
   DOCKER_HUB_REPO: diamonds-price-prediction
-  GOOGLE_DRIVE_FOLDER_ID: your_google_drive_folder_id
 
 jobs:
   mlflow-project:
@@ -34,7 +31,6 @@ jobs:
       run: |
         python --version
         pip --version
-        echo "Python environment ready"
     
     - name: Install dependencies
       run: |
@@ -53,17 +49,22 @@ jobs:
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         echo "Latest run_id: $RUN_ID"
     
-    - name: Install Python dependencies for upload
+    - name: Create credentials.json from secret
+      env:
+        GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
       run: |
-        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+        echo "$GDRIVE_CREDENTIALS_DATA" > credentials.json
+        echo "credentials.json created"
     
-    - name: Upload to Google Drive
-      uses: saturnism/actions-google-drive@v1
-      with:
-        service-account-key: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
-        source: ./MLProject/data_preprocessed/
-        destination: ${{ env.GOOGLE_DRIVE_FOLDER_ID }}
-        recursive: true
+    - name: Upload to Google Drive using gdrive CLI
+      run: |
+        # Download gdrive CLI
+        wget https://github.com/glotlabs/gdrive/releases/download/3.9.0/gdrive_linux_x64.tar.gz
+        tar -xzf gdrive_linux_x64.tar.gz
+        chmod +x gdrive
+        
+        # Upload menggunakan service account
+        ./gdrive upload --recursive --parent ${{ secrets.GDRIVE_FOLDER_ID }} --service-account credentials.json MLProject/data_preprocessed/
     
     - name: Build Docker Model with MLflow
       run: |
@@ -84,15 +85,8 @@ jobs:
       run: |
         docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest
         docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}
-
-    - name: Save run_id to file
-      run: |
-        echo "RUN_ID=${{ steps.mlflow_run.outputs.run_id }}" > run_id.txt
-        echo "DOCKER_IMAGE=${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}" >> run_id.txt
     
-    - name: Upload run_id as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: mlflow-run-info
-        path: run_id.txt
-        retention-days: 30
+    - name: Clean up
+      run: |
+        rm -f credentials.json
+        rm -f gdrive*
