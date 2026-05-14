@@ -39,17 +39,17 @@ jobs:
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         echo "RUN_ID=$RUN_ID"
     
-    - name: Install Python dependencies for Google Drive
+    - name: Download gdrive CLI
       run: |
-        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+        wget https://github.com/glotlabs/gdrive/releases/download/3.9.0/gdrive_linux_x64.tar.gz
+        tar -xzf gdrive_linux_x64.tar.gz
+        chmod +x gdrive
     
     - name: Upload to Google Drive
-      uses: saturnism/actions-google-drive@v1
-      with:
-        service-account-key: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
-        source: ./MLProject/data_preprocessed/
-        destination: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
-        recursive: true
+      run: |
+        echo "${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}" > credentials.json
+        mkdir -p MLProject/data_preprocessed
+        ./gdrive upload --recursive --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} --service-account credentials.json ./MLProject/data_preprocessed/
     
     - name: Copy model to docker build context
       run: |
