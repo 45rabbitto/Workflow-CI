@@ -39,22 +39,16 @@ jobs:
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         echo "RUN_ID=$RUN_ID"
     
-    - name: Copy model to docker context
+    - name: Copy model to docker build context
       run: |
-        cp -r MLProject/mlruns/0/${{ steps.mlflow_run.outputs.run_id }}/artifacts/model MLProject/docker_model
-        cp MLProject/Dockerfile MLProject/docker_model/
-        cp MLProject/conda.yaml MLProject/docker_model/ || true
+        mkdir -p MLProject/docker_build
+        cp -r MLProject/mlruns/0/${{ steps.mlflow_run.outputs.run_id }}/artifacts/model MLProject/docker_build/
+        cp MLProject/Dockerfile MLProject/docker_build/
     
-    - name: Build Docker Image with MLflow
-      shell: bash -l {0}
+    - name: Build Docker Image
       run: |
-        cd MLProject
-        export MLFLOW_HOME=$(python -c "import mlflow; print(mlflow.__path__[0])")
-        mlflow models build-docker \
-          -m "runs:/${{ steps.mlflow_run.outputs.run_id }}/model" \
-          -n "${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest" \
-          --install-mlflow \
-          --enable-mlserver
+        cd MLProject/docker_build
+        docker build -t ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest .
     
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
@@ -67,3 +61,10 @@ jobs:
         docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest
         docker tag ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}
         docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}
+    
+    - name: Upload model as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: trained-model
+        path: MLProject/mlruns/0/${{ steps.mlflow_run.outputs.run_id }}/artifacts/model/
+        retention-days: 30
