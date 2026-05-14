@@ -41,7 +41,7 @@ jobs:
     
     - name: Download gdrive CLI
       run: |
-        wget https://github.com/glotlabs/gdrive/releases/download/3.9.0/gdrive_linux_x64.tar.gz
+        wget https://github.com/glotlabs/gdrive/releases/download/3.9.2/gdrive_linux_x64.tar.gz
         tar -xzf gdrive_linux_x64.tar.gz
         chmod +x gdrive
     
