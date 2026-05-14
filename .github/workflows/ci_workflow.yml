@@ -39,17 +39,18 @@ jobs:
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         echo "RUN_ID=$RUN_ID"
     
-    - name: Download gdrive CLI
+    - name: Install gdrive CLI
       run: |
         wget https://github.com/prasmussen/gdrive/releases/download/2.1.1/gdrive_2.1.1_linux_amd64.tar.gz
         tar -xzf gdrive_2.1.1_linux_amd64.tar.gz
+        mv gdrive_2.1.1_linux_amd64 gdrive
         chmod +x gdrive
     
     - name: Upload to Google Drive
       run: |
         echo "${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}" > credentials.json
         mkdir -p MLProject/data_preprocessed
-        ./gdrive upload --recursive --parent ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} --service-account credentials.json ./MLProject/data_preprocessed/
+        ./gdrive upload --recursive -p ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }} ./MLProject/data_preprocessed/
     
     - name: Copy model to docker build context
       run: |
