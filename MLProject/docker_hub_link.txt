@@ -1,0 +1,5 @@
+https://hub.docker.com/repository/docker/45rabbitto/diamonds-price-prediction
+
+Docker Image: 45rabbitto/diamonds-price-prediction:latest
+
+Pull command: docker pull 45rabbitto/diamonds-price-prediction:latest
