@@ -3,9 +3,6 @@ name: MLflow CI Pipeline
 on:
   push:
     branches: [ main, master ]
-    paths:
-      - 'MLProject/**'
-      - '.github/workflows/ci_workflow.yml'
   workflow_dispatch:
 
 env:
@@ -19,48 +16,29 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
     
     - name: Setup Conda
       uses: conda-incubator/setup-miniconda@v3
       with:
-        miniconda-version: "latest"
         python-version: 3.12.6
         environment-file: MLProject/conda.yaml
         activate-environment: mlflow-env
         auto-activate-base: false
-        auto-update-conda: false
-        channels: conda-forge,defaults
-    
-    - name: Check Conda Environment
-      shell: bash -l {0}
-      run: |
-        conda info
-        python --version
     
     - name: Run MLflow project
       shell: bash -l {0}
       run: |
         cd MLProject
-        mlflow run . --env-manager=conda -P test_size=0.2 -P random_state=42 -P n_estimators=100 -P max_depth=10
+        mlflow run . -P test_size=0.2 -P random_state=42
     
-    - name: Get latest MLflow run_id
+    - name: Get run_id
       id: mlflow_run
       shell: bash -l {0}
       run: |
-        RUN_ID=$(python -c "
-import mlflow
-from mlflow.tracking import MlflowClient
-client = MlflowClient()
-runs = client.search_runs(experiment_ids=['0'], max_results=1)
-if runs:
-    print(runs[0].info.run_id)
-")
+        RUN_ID=$(mlflow runs list --experiment-id 0 | grep run_id | head -1 | cut -d' ' -f2)
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-        echo "RUN_ID=$RUN_ID"
     
-    - name: Build Docker Model with MLflow
+    - name: Build Docker Model
       shell: bash -l {0}
       run: |
         cd MLProject
@@ -72,11 +50,6 @@ if runs:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
         password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
     
-    - name: Tag Docker Image
-      run: |
-        docker tag ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}
-    
     - name: Push Docker Image
       run: |
         docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest
-        docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}
