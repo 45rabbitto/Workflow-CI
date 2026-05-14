@@ -1,0 +1,98 @@
+name: MLflow CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'MLProject/**'
+      - '.github/workflows/ci_workflow.yml'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  DOCKER_HUB_USERNAME: 45rabbitto
+  DOCKER_HUB_REPO: diamonds-price-prediction
+  GOOGLE_DRIVE_FOLDER_ID: GDRIVE
+
+jobs:
+  mlflow-project:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python 3.12.7
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12.7'
+    
+    - name: Check Env
+      run: |
+        python --version
+        pip --version
+        echo "Python environment ready"
+    
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install mlflow==2.19.0 pandas numpy scikit-learn matplotlib
+    
+    - name: Run MLflow project
+      run: |
+        cd MLProject
+        mlflow run . -P test_size=0.2 -P random_state=42 -P n_estimators=100 -P max_depth=10
+    
+    - name: Get latest MLflow run_id
+      id: mlflow_run
+      run: |
+        RUN_ID=$(mlflow runs list --experiment-id 0 --max-results 1 --output json | python -c "import sys, json; print(json.load(sys.stdin)[0]['info']['run_id'])")
+        echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+        echo "Latest run_id: $RUN_ID"
+    
+    - name: Install Python dependencies for upload
+      run: |
+        pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+    
+    - name: Upload to Google Drive
+      uses: saturnism/actions-google-drive@v1
+      with:
+        service-account-key: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
+        source: ./MLProject/data_preprocessed/
+        destination: ${{ env.GOOGLE_DRIVE_FOLDER_ID }}
+        recursive: true
+    
+    - name: Build Docker Model with MLflow
+      run: |
+        cd MLProject
+        mlflow models build-docker -m "runs:/${{ steps.mlflow_run.outputs.run_id }}/model" -n "${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest"
+    
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+    
+    - name: Tag Docker Image
+      run: |
+        docker tag ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}
+    
+    - name: Push Docker Image
+      run: |
+        docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:latest
+        docker push ${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}
+
+    - name: Save run_id to file
+      run: |
+        echo "RUN_ID=${{ steps.mlflow_run.outputs.run_id }}" > run_id.txt
+        echo "DOCKER_IMAGE=${{ env.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_HUB_REPO }}:${{ github.sha }}" >> run_id.txt
+    
+    - name: Upload run_id as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mlflow-run-info
+        path: run_id.txt
+        retention-days: 30
