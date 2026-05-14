@@ -13,7 +13,7 @@ on:
 env:
   DOCKER_HUB_USERNAME: 45rabbitto
   DOCKER_HUB_REPO: diamonds-price-prediction
-  GOOGLE_DRIVE_FOLDER_ID: GDRIVE
+  GOOGLE_DRIVE_FOLDER_ID: your_google_drive_folder_id
 
 jobs:
   mlflow-project:
